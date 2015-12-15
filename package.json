@@ -1,0 +1,28 @@
+{
+  "name": "saluschat",
+  "version": "1.0.0",
+  "description": "PGP encrypted web chat application targeted at secure, self-destructive messaging.",
+  "main": "main.js",
+  "dependencies": {
+    "express": "latest",
+    "serve-static": "latest",
+    "body-parser": "latest",
+    "diskdb": "latest",
+    "openpgp": "latest"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://xdarkshadowknightx@github.com/CodebyteStudios/SalusChat.git"
+  },
+  "author": "Codebyte Studios",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/CodebyteStudios/SalusChat/issues"
+  },
+  "homepage": "https://github.com/CodebyteStudios/SalusChat#readme"
+}
+
