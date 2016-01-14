@@ -13,7 +13,7 @@ if (!fs.existsSync(__dirname + '/db')) {
 
 // creates a hash from a random string using crypto.randomBytes, a UNIX timestamp, and
 // crypto.createHash('md5'), then checks to see if a message with that hash exists in the database
-function GenerateUniqueHash() {
+function GenerateUniqueHash(table) {
 
 	while(true) {
 
@@ -21,7 +21,7 @@ function GenerateUniqueHash() {
 			crypto.randomBytes(10).toString('hex') + "" + new Date().getTime()
 		).digest('hex');
 
-		if(!db.messages.findOne({"hash": hash})) {
+		if(!db[table].findOne({"hash": hash})) {
 			return hash;
 		}
 	}
@@ -39,14 +39,22 @@ function Envelope(res, meta, data) {
 	}));
 }
 
+function VerifyUser(username, decryptedHash) {
+
+}
+
 db.connect(__dirname + '/db', ['users', 'messages']);
 
 app.use(serveStatic(__dirname + '/public'));
 
 app.use(bodyParser.json());
 
-// join this server
-app.post('/j', function(req, res) {
+// if the user doesn't exist this creates a new user, this is also
+// used to login. on success this method returns a random string
+// that has been encrypted with the users public key, this must be
+// decrypted by the client and sent to /users/verify. this should
+// eventually require a captcha to prevent spam and brute force attacks.
+app.post('/users/enter', function(req, res) {
 
 	if(!req.body.username || !req.body.key) {
 
@@ -66,36 +74,88 @@ app.post('/j', function(req, res) {
 
 	var user = db.users.findOne({username: req.body.username});
 
-	if(user) {
+	if(!user) {
+
+		var hash = GenerateUniqueHash('users');
+
+		user = db.users.save({
+			"username": req.body.username,
+			"key": req.body.key,
+			"hash": hash
+		});
+
+		var publicKey = openpgp.key.readArmored(user.key);
+
+		openpgp.encryptMessage(publicKey.keys, hash).then(function(encryptedHash) {
+
+			Envelope(res, {
+				"code": 200
+			}, {
+				"encryptedHash": encryptedHash
+			});
+
+		}).catch(function(error) {
+
+			Envelope(res, {
+				"code": 500,
+				"error": {
+					"type": "Encryption",
+					"message": "The server was unable to encrypt the message with the users public key"
+				}
+			});
+
+		});
+
+	}
+
+});
+
+// when a user trys to enter the server it'll need to decrypt a random string
+// that has been encrypted for that user from the server to verify it's
+// actually them. this is the api request they callback to after doing that
+
+// NOTE: this method doesn't actually need to be called, and can be hacked around
+// it comes down to the client having the correct private key to decrypt any messages
+
+// also to actually receive any messages the client has to repeat this process
+app.post('/users/verify', function(req, res) {
+
+	if(!req.body.decryptedHash) {
 
 		return Envelope(res, {
-			"code": 409,
+			"code": 400,
 			"error": {
 				"type": "Query",
-				"message": "Username in use"
+				"message": "Missing field 'decryptedHash'"
 			}
+		});
+	}
+
+	var user = db.users.findOne({"hash": req.body.decryptedHash});
+
+	if(user) {
+
+		Envelope(res, {
+			"code": 200
 		});
 
 	}
 	else {
 
-		if(db.users.save({
-			"username": req.body.username,
-			"key": req.body.key
-		})) {
-
-			return Envelope(res, {
-				"code": 200
-			});
-
-		}
+		return Envelope(res, {
+			"code": 404,
+			"error": {
+				"type": "Database",
+				"message": "User with hash '" + req.body.decryptedHash + "'not exist"
+			}
+		});
 
 	}
 
 });
 
 // obtain users public key
-app.post('/k', function(req, res) {
+app.post('/users/key', function(req, res) {
 
 	if(!req.body.username) {
 		return Envelope(res, {
@@ -134,7 +194,7 @@ app.post('/k', function(req, res) {
 });
 
 // schedule a message to be sent to another user
-app.post('/m', function(req, res) {
+app.post('/messages/send', function(req, res) {
 
 	if(!req.body.sender || !req.body.receiver || !req.body.message) {
 
@@ -216,7 +276,7 @@ app.post('/m', function(req, res) {
 });
 
 // verify message and send it
-app.post('/v', function(req, res) {
+app.post('/messages/verify', function(req, res) {
 
 	if(!req.body.message) {
 		return Envelope(res, {
@@ -254,7 +314,7 @@ app.post('/v', function(req, res) {
 });
 
 // retrieve all receivable messages for the passed username
-app.post('/r', function() {
+app.post('/messages/retrieve', function() {
 
 	if(!req.body.username) {
 		return Envelope(res, {
@@ -327,9 +387,10 @@ app.post('/r', function() {
 
 });
 
-// sets the lifetime of all the messages with the passed resolved pgpHash's to zero
-// this will cause them to be removed upon the next server message garbage collection
-app.post('/d', function() {
+// sets the lifetime of all the messages with the passed resolved
+// pgpHash's to zero this will cause them to be removed upon the next
+// server message garbage collection
+app.post('/messages/delete', function() {
 
 });
 

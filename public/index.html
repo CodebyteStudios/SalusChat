@@ -1,18 +1,57 @@
 <html>
-	<head>
-		<title>Salus Chat</title>
-		<script src="js/openpgp.min.js" type="application/javascript"></script>
-		<script>
+<head>
+	<title>Salus Chat</title>
+	<script src="js/openpgp.min.js" type="application/javascript"></script>
+	<script src="js/jquery-1.11.3.min.js" type="application/javascript"></script>
+	<link href="css/styles.css" rel="stylesheet" type="text/css">
+	<script>
 
-			window.onload = function() {
+		$(document).ready(function() {
 
+			App = {
 
+				views: {
+					enter: $('<div>').addClass('view').html(
+						$('<div>').addClass('join').html([
+							$('<div>').addClass('header').text('Server Gate'),
+							$('<input>').addClass('input').attr('name', 'username').attr('type', 'text').attr('placeholder', 'Username'),
+							$('<input>').addClass('input').attr('name', 'password').attr('type', 'password').attr('placeholder', 'Password'),
+							$('<input>').addClass('input').attr('name', 'pin').attr('type', 'password').attr('placeholder', 'Pin'),
+							$('<button>').addClass('button').attr('name', 'enter').text('Enter')
+						])
+					),
+					hub: $('<div>').addClass('view')
+				},
+
+				show: function(name) {
+
+					$.each(this.views, function(viewName, viewObject) {
+
+						if(viewName == name) {
+							viewObject.show();
+						}
+						else {
+							viewObject.hide();
+						}
+
+					});
+
+				}
 
 			};
 
-		</script>
-	</head>
-	<body>
-		Hello world!
-	</body>
+			// clicking the 'Enter' button will generate the local public key
+			App.views.enter.find('button[name="enter"]').on('click', function() {
+
+			});
+
+			$(document.body).append($('<div>').addClass('views').html([App.views.enter, App.views.hub]));
+
+			App.show('enter');
+
+		});
+
+	</script>
+</head>
+<body></body>
 </html>
